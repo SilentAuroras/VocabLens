@@ -1,0 +1,25 @@
+# IDE
+.idea/
+
+# Terraform
+*.tfvars
+*.tfstate.*
+override.tf
+**/.terraform/*
+
+# GO
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+go.work.sum
+
+# Python
+.env
+build/
+develop-eggs/
+dist/
