@@ -1,3 +1,3 @@
-module github.com/SilentAuroras/VocabLens
+module vocablens
 
 go 1.25
