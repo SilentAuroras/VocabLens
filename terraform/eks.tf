@@ -17,9 +17,4 @@ resource "aws_eks_cluster" "vocablens-eks" {
       aws_subnet.vocablens-subnet.id
     ]
   }
-
-  // Wait for IAM role attachment
-  depends_on = [
-    aws_iam_role_policy_attachment.eks-cluster-attachment
-  ]
 }
