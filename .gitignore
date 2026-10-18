@@ -6,6 +6,8 @@
 *.tfstate.*
 override.tf
 **/.terraform/*
+.terraform/
+*.lock.hcl
 
 # GO
 *.exe
