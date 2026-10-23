@@ -1,0 +1,71 @@
+# EKS deployment
+name: EKS Deploy
+
+# Wait for successful go tests
+on:
+  workflow_run:
+    workflows:
+      - Go Build + Tests
+    types:
+      - completed
+
+# Set permissions
+permissions:
+  contents: read
+  id-token: write
+
+# Set env variables - pull from GitHub secrets
+env:
+  AWS_REGION: ${{secrets.AWS_REGION}}
+  EKS_CLUSTER_NAME: ${{secrets.EKS_CLUSTER_NAME}}
+  ECR_REPOSITORY: ${{secrets.ECR_REPOSITORY}}
+  K8S_MANIFEST_PATH: k8s/deployment.yaml
+
+# Ensure completion and successful completion of tests workflow
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    # Wait for go-build successful run
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main'
+
+    # Define steps for EKS deployment
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        id: build-image
+        run: |
+          IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.event.workflow_run.head_sha }}"
+          docker build -t "$IMAGE_URI" .
+          docker push "$IMAGE_URI"
+          echo "image_uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name "${{ env.EKS_CLUSTER_NAME }}" --region "${{ env.AWS_REGION }}"
+
+      - name: Validate manifest
+        run: |
+          test -s "${{ env.K8S_MANIFEST_PATH }}" || {
+            echo "Manifest file is missing or empty: ${{ env.K8S_MANIFEST_PATH }}"
+            exit 1
+          }
+
+      - name: Deploy to EKS
+        run: kubectl apply -f "${{ env.K8S_MANIFEST_PATH }}"
